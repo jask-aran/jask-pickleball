@@ -1,0 +1,11 @@
+.gradle/
+build/
+app/build/
+local.properties
+.wrangler/
+.wranglerignore
+node_modules/
+dist/
+*.apk
+*.aab
+.DS_Store

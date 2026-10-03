@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Pickleball</title>
+<style>
+  @font-face {
+    font-family: "Geist Variable";
+    src: url("geist-latin.woff2") format("woff2");
+    font-weight: 100 900;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: "Geist Variable";
+    src: url("geist-latin-ext.woff2") format("woff2");
+    font-weight: 100 900;
+    font-display: swap;
+  }
+  :root {
+    --frame: oklch(0.138 0.004 264);
+    --background: oklch(0.186 0.005 264);
+    --foreground: oklch(0.93 0.003 258);
+    --primary: oklch(0.95 0.002 258);
+    --primary-foreground: oklch(0.2 0.006 264);
+    --muted-foreground: oklch(0.63 0.006 262);
+    --accent: oklch(1 0 0 / 7%);
+    --border: oklch(1 0 0 / 7%);
+    --frost-fill: #ffffff2b;
+    --frost-stroke: #ffffff4d;
+    --frost-blur: blur(24px);
+    --frost-shadow: 0 24px 70px rgb(0 0 0 / 38%), inset 0 1px 0 rgb(255 255 255 / 50%), inset 0 -1px 0 rgb(255 255 255 / 10%);
+    --safe-top: env(safe-area-inset-top, 28px);
+    --safe-bottom: env(safe-area-inset-bottom, 20px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; }
+  body {
+    display: flex;
+    flex-direction: column;
+    background: var(--frame);
+    color: var(--foreground);
+    font: 400 16px/1.45 "Geist Variable", sans-serif;
+    user-select: none;
+  }
+  button, input { font: inherit; color: inherit; }
+  button { border: 0; background: transparent; padding: 0; }
+  button:focus, input:focus { outline: none; }
+  .board { padding: calc(var(--safe-top) + 8px) 16px 0; }
+  .call {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+  }
+  .call.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .slot { min-width: 0; text-align: center; }
+  .slot:first-child { text-align: left; }
+  .slot:last-child { text-align: right; }
+  .num {
+    display: block;
+    font-weight: 400;
+    font-size: clamp(31px, 18vw, 72px);
+    letter-spacing: -0.035em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .slot.live .num { font-weight: 600; }
+  .cap {
+    display: block;
+    margin-top: 4px;
+    color: color-mix(in oklch, var(--foreground), transparent 50%);
+    font-size: 9.6px;
+    font-weight: 700;
+  }
+  .status {
+    margin: 8px 0 0;
+    color: var(--muted-foreground);
+    font: 400 11px/1.3 ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  .board.won .status, .board.picking .status { color: var(--foreground); }
+  .stage {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    place-items: start center;
+    padding: 10px 4px 0;
+    overflow: visible;
+  }
+  .sheet {
+    position: relative;
+    overflow: visible;
+    background: transparent;
+  }
+  .half { position: absolute; top: 0; bottom: 0; width: 50%; }
+  .half.left { left: 0; }
+  .half.right { right: 0; }
+  .half:active { background: var(--accent); }
+  .lines { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+  .court { fill: var(--background); }
+  .line { fill: none; stroke: oklch(1 0 0 / 55%); stroke-width: 2; }
+  .kitchen { fill: oklch(1 0 0 / 5%); }
+  .net { stroke: oklch(0.93 0.003 258); stroke-width: 3; }
+  .mark {
+    position: absolute;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    min-height: 44px;
+    color: var(--muted-foreground);
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    border-radius: 8px;
+  }
+  .mark.serving { color: var(--foreground); }
+  body.picking .mark { pointer-events: auto; }
+  body.picking .half { pointer-events: none; }
+  body.picking .mark:active { background: var(--accent); }
+  .person {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .mark.serving .person { stroke-width: 3; }
+  .mark .name {
+    max-width: 72px;
+    margin-top: 1px;
+    font-size: 11px;
+    font-weight: 580;
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mark.serving .name { font-weight: 600; }
+  .bubble {
+    flex: none;
+    margin: 8px 12px;
+    overflow: visible;
+    border: 1px solid var(--frost-stroke);
+    border-radius: 15px;
+    background: var(--frost-fill);
+    backdrop-filter: var(--frost-blur);
+    -webkit-backdrop-filter: var(--frost-blur);
+    box-shadow: var(--frost-shadow);
+    padding: 6px 8px;
+  }
+  .pair { display: flex; gap: 8px; }
+  .pair .row { flex: 1; min-width: 0; padding-left: 4px; padding-right: 4px; }
+  .pair .row > span:first-child { flex: none; }
+  .pair .row input { width: auto; flex: 1; min-width: 0; }
+  .bubble[hidden] { display: none; }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 40px;
+    padding: 0 8px;
+    border-radius: 8px;
+  }
+  .row > span:first-child { flex: 1; font-size: 13px; }
+  .row input, .seg { width: 108px; }
+  input {
+    height: 36px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: transparent;
+    padding: 0 10px;
+    font-size: 16px;
+    font-variant-numeric: tabular-nums;
+  }
+  input:focus { border-color: oklch(1 0 0 / 28%); }
+  .seg {
+    display: flex;
+    height: 36px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .seg button { flex: 1; color: var(--muted-foreground); font-size: 14px; }
+  .seg button[aria-current="true"] { background: var(--accent); color: var(--foreground); font-weight: 600; }
+  .extra { display: none; }
+  .bubble.doubles .extra { display: flex; }
+  .reach {
+    display: flex;
+    gap: 8px;
+    padding: 0 12px 8px;
+  }
+  .reach[hidden] { display: none; }
+  .reach button {
+    flex: 1;
+    min-height: 72px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted-foreground);
+    font-size: 16px;
+    font-weight: 560;
+  }
+  .reach button.serving { color: var(--foreground); font-weight: 600; }
+  .reach button:active { background: var(--accent); }
+  .reach button.slim { flex: 0 0 52px; }
+  .reach .sub { display: block; margin-top: 2px; font-size: 11px; font-weight: 400; color: var(--muted-foreground); }
+  .call button.num, .call button.cap {
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    text-align: inherit;
+    line-height: 1;
+  }
+  .call button.cap { margin-top: 4px; font-size: 9.6px; font-weight: 700; color: color-mix(in oklch, var(--foreground), transparent 50%); }
+  .call button:active { background: var(--accent); border-radius: 8px; }
+  body.editing .half { pointer-events: none; }
+  footer {
+    display: flex;
+    gap: 6px;
+    padding: 6px 8px calc(8px + var(--safe-bottom));
+    border-top: 1px solid var(--frost-stroke);
+    background: var(--frost-fill);
+    backdrop-filter: var(--frost-blur);
+    -webkit-backdrop-filter: var(--frost-blur);
+  }
+  footer button {
+    flex: 1;
+    min-height: 44px;
+    border-radius: 11px;
+    font-weight: 560;
+    font-size: 14px;
+  }
+  footer button:active:not(:disabled) { background: var(--accent); }
+  footer button:disabled { color: var(--muted-foreground); }
+  footer button.current { font-weight: 600; }
+</style>
+</head>
+<body>
+  <header class="board" id="board">
+    <div class="call" id="call"></div>
+    <p class="status" id="status"></p>
+  </header>
+  <div class="stage">
+    <div class="sheet" id="sheet">
+      <button class="half left" id="left" type="button"></button>
+      <button class="half right" id="right" type="button"></button>
+      <svg class="lines" viewBox="-6 -6 452 212" overflow="visible" aria-hidden="true">
+        <rect class="court" x="2" y="2" width="436" height="192"></rect>
+        <rect class="kitchen" x="151" y="2" width="69" height="192"></rect>
+        <rect class="kitchen" x="220" y="2" width="69" height="192"></rect>
+        <rect class="line" x="2" y="2" width="436" height="192"></rect>
+        <line class="line" x1="151" y1="2" x2="151" y2="194"></line>
+        <line class="line" x1="289" y1="2" x2="289" y2="194"></line>
+        <line class="line" x1="2" y1="98" x2="151" y2="98"></line>
+        <line class="line" x1="289" y1="98" x2="438" y2="98"></line>
+        <line class="net" x1="220" y1="2" x2="220" y2="194"></line>
+      </svg>
+    </div>
+  </div>
+  <div class="bubble" id="bubble" hidden>
+    <div class="row"><span>Players</span>
+      <span class="seg" id="seg">
+        <button type="button" data-n="2">2</button>
+        <button type="button" data-n="4">4</button>
+      </span>
+    </div>
+    <div class="pair">
+      <label class="row"><span>Until</span><input id="target" inputmode="numeric" autocomplete="off"></label>
+      <label class="row"><span>Win by</span><input id="winby" inputmode="numeric" autocomplete="off"></label>
+    </div>
+    <div class="pair">
+      <label class="row"><span id="sl0">Left</span><input id="score0" inputmode="numeric" autocomplete="off"></label>
+      <label class="row"><span id="sl1">Right</span><input id="score1" inputmode="numeric" autocomplete="off"></label>
+    </div>
+    <div class="pair">
+      <label class="row"><span>Name</span><input id="p0" autocomplete="off"></label>
+      <label class="row extra"><span>Name</span><input id="p1" autocomplete="off"></label>
+    </div>
+    <div class="pair">
+      <label class="row"><span>Name</span><input id="p2" autocomplete="off"></label>
+      <label class="row extra"><span>Name</span><input id="p3" autocomplete="off"></label>
+    </div>
+  </div>
+  <div class="reach" id="reach"></div>
+  <footer>
+    <button type="button" id="new">New game</button>
+    <button type="button" id="undo">Undo</button>
+    <button type="button" id="flip">Flip</button>
+    <button type="button" id="edit">Edit</button>
+  </footer>
+  <script src="score.js"></script>
+  <script>
+    var KEY = "jask-pickleball";
+    var game = load();
+    var picking = false;
+    var editing = false;
+    var editBase = null;
+    var PERSON = '<svg class="person" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="4"></circle><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path></svg>';
+
+    document.addEventListener("gesturestart", function (e) { e.preventDefault(); }, { passive: false });
+    document.addEventListener("touchmove", function (e) {
+      if (e.touches && e.touches.length > 1) e.preventDefault();
+    }, { passive: false });
+
+    function load() {
+      try {
+        var saved = JSON.parse(localStorage.getItem(KEY));
+        if (saved) return Pickle.normalize(saved);
+      } catch (e) {}
+      return Pickle.create();
+    }
+    function save() { localStorage.setItem(KEY, JSON.stringify(game)); }
+    function escape(s) {
+      return String(s).replace(/[&<>"]/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+      });
+    }
+    function pname(side, i) {
+      var p = side.players[i];
+      return p && p.name && p.name.trim() ? p.name.trim() : side.label;
+    }
+    function screenOf(si) { return game.flipped ? 1 - si : si; }
+    function dataOf(screen) { return game.flipped ? 1 - screen : screen; }
+    function spot(screen, box) {
+      if (screen === 0) return { x: "18%", y: box === "right" ? "73%" : "27%" };
+      return { x: "82%", y: box === "right" ? "27%" : "73%" };
+    }
+    function fit() {
+      var stage = document.querySelector(".stage");
+      var sheet = document.getElementById("sheet");
+      var w = Math.min(stage.clientWidth, stage.clientHeight * 44 / 20);
+      if (w < 1) return;
+      sheet.style.width = w + "px";
+      sheet.style.height = (w * 20 / 44) + "px";
+    }
+    function slot(n, cap, live, act, side) {
+      var cls = "slot" + (live ? " live" : "");
+      if (!editing) {
+        return '<div class="' + cls + '"><span class="num">' + n +
+          '</span><span class="cap">' + escape(cap) + "</span></div>";
+      }
+      var sideAttr = side == null ? "" : ' data-side="' + side + '"';
+      return '<div class="' + cls + '"><button type="button" class="num" data-act="' + act + '"' + sideAttr + '>' + n +
+        '</button><button type="button" class="cap" data-act="' + act + '"' + sideAttr + '>' + escape(cap) + "</button></div>";
+    }
+    function render() {
+      var c = Pickle.call(game);
+      var w = Pickle.winner(game);
+      var srv = game.server.side;
+      var html = slot(c.serve, c.serveLabel, true, "plus", srv) + slot(c.receive, c.receiveLabel, false, "plus", 1 - srv);
+      if (c.num != null) html += slot(c.num, "Server", true, "server");
+      var call = document.getElementById("call");
+      call.className = "call" + (c.num == null ? " two" : "");
+      call.innerHTML = html;
+      var board = document.getElementById("board");
+      board.className = "board" + (picking ? " picking" : "") + (w !== null ? " won" : "");
+      var server = game.sides[game.server.side];
+      document.getElementById("status").textContent = picking
+        ? "Tap who serves first"
+        : (editing
+          ? "Tap a score, or Server if you missed the change"
+          : (w === null
+            ? pname(server, game.server.index) + " serving · until " + game.target
+            : game.sides[w].label + " reached " + game.sides[w].score));
+      document.body.classList.toggle("picking", picking);
+      document.body.classList.toggle("editing", editing);
+      var sheet = document.getElementById("sheet");
+      sheet.querySelectorAll(".mark").forEach(function (el) { el.remove(); });
+      [0, 1].forEach(function (si) {
+        var side = game.sides[si];
+        var screen = screenOf(si);
+        document.getElementById(screen === 0 ? "left" : "right").setAttribute("aria-label", side.label + " won the rally");
+        side.players.forEach(function (p, i) {
+          var box = game.players === 2 ? (side.score % 2 === 0 ? "right" : "left") : p.box;
+          var at = spot(screen, box);
+          var mark = document.createElement("button");
+          mark.type = "button";
+          var serving = !picking && game.server.side === si && game.server.index === i;
+          mark.className = "mark" + (serving ? " serving" : "");
+          mark.style.left = at.x;
+          mark.style.top = at.y;
+          mark.innerHTML = PERSON + '<span class="name">' + escape(pname(side, i)) + "</span>";
+          mark.addEventListener("click", function (e) {
+            e.stopPropagation();
+            if (!picking) return;
+            picking = false;
+            Pickle.begin(game, si, i);
+            render();
+          });
+          sheet.appendChild(mark);
+        });
+      });
+      document.getElementById("undo").disabled = !game.history.length;
+      document.getElementById("new").textContent = picking ? "Cancel" : "New game";
+      document.getElementById("edit").classList.toggle("current", editing);
+      document.getElementById("edit").textContent = editing ? "Done" : "Edit";
+      document.getElementById("flip").classList.toggle("current", !!game.flipped);
+      renderReach();
+      save();
+      fit();
+    }
+    function fillBubble() {
+      var b = document.getElementById("bubble");
+      b.classList.toggle("doubles", game.players === 4);
+      document.querySelectorAll("#seg button").forEach(function (btn) {
+        btn.setAttribute("aria-current", String(Number(btn.dataset.n) === game.players));
+      });
+      document.getElementById("target").value = game.target;
+      document.getElementById("winby").value = game.winBy;
+      document.getElementById("sl0").textContent = game.sides[0].label;
+      document.getElementById("sl1").textContent = game.sides[1].label;
+      document.getElementById("score0").value = game.sides[0].score;
+      document.getElementById("score1").value = game.sides[1].score;
+      document.getElementById("p0").value = game.sides[0].players[0].name;
+      document.getElementById("p1").value = (game.sides[0].players[1] || {}).name || "";
+      document.getElementById("p2").value = game.sides[1].players[0].name;
+      document.getElementById("p3").value = (game.sides[1].players[1] || {}).name || "";
+    }
+    function openEdit() {
+      if (editing) return closeEdit();
+      picking = false;
+      editing = true;
+      editBase = Pickle.snapshot(game);
+      fillBubble();
+      document.getElementById("bubble").hidden = false;
+      render();
+    }
+    function closeEdit() {
+      if (editBase && JSON.stringify(Pickle.snapshot(game)) !== JSON.stringify(editBase)) {
+        game.history.push(editBase);
+        if (game.history.length > 100) game.history.shift();
+      }
+      editing = false;
+      editBase = null;
+      document.getElementById("bubble").hidden = true;
+      render();
+    }
+    function onNum(id, apply) {
+      var el = document.getElementById(id);
+      el.addEventListener("input", function () {
+        if (el.value.trim() === "" || !/^\d+$/.test(el.value)) return;
+        apply(Number(el.value));
+        render();
+      });
+    }
+    function point(side) {
+      if (picking || editing) return;
+      Pickle.rally(game, side);
+      render();
+    }
+    function renderReach() {
+      var reach = document.getElementById("reach");
+      reach.hidden = picking;
+      if (picking) return;
+      var left = dataOf(0);
+      var right = dataOf(1);
+      function sideBtn(si, act, slim) {
+        var serving = game.server.side === si ? " serving" : "";
+        var cls = (slim ? "slim " : "") + serving;
+        var label = act === "minus" ? "−" : escape(game.sides[si].label);
+        var sub = act === "plus" && editing ? '<span class="sub">' + game.sides[si].score + "</span>" : "";
+        return '<button type="button" class="' + cls + '" data-act="' + act + '" data-side="' + si + '">' + label + sub + "</button>";
+      }
+      if (!editing) {
+        reach.innerHTML = sideBtn(left, "rally") + sideBtn(right, "rally");
+        return;
+      }
+      reach.innerHTML = sideBtn(left, "minus", true) + sideBtn(left, "plus") +
+        '<button type="button" class="server" data-act="server">Server<span class="sub">' +
+        (game.players === 4 ? game.serverNum : "") + "</span></button>" +
+        sideBtn(right, "plus") + sideBtn(right, "minus", true);
+    }
+    function adjust(act, side) {
+      if (act === "plus") Pickle.bump(game, side, 1, false);
+      else if (act === "minus") Pickle.bump(game, side, -1, false);
+      else if (act === "server") Pickle.missed(game, false);
+      else return;
+      if (editing) fillBubble();
+      render();
+    }
+    document.getElementById("left").addEventListener("click", function () { point(dataOf(0)); });
+    document.getElementById("right").addEventListener("click", function () { point(dataOf(1)); });
+    document.getElementById("reach").addEventListener("click", function (e) {
+      var b = e.target.closest("button");
+      if (!b) return;
+      if (b.dataset.act === "rally") point(Number(b.dataset.side));
+      else adjust(b.dataset.act, Number(b.dataset.side));
+    });
+    document.getElementById("call").addEventListener("click", function (e) {
+      var b = e.target.closest("button");
+      if (!b || !editing) return;
+      adjust(b.dataset.act, Number(b.dataset.side));
+    });
+    document.getElementById("flip").addEventListener("click", function () {
+      game.flipped = !game.flipped;
+      render();
+    });
+    document.getElementById("undo").addEventListener("click", function () { Pickle.undo(game); if (editing) fillBubble(); render(); });
+    document.getElementById("new").addEventListener("click", function () {
+      if (editing) closeEdit();
+      picking = !picking;
+      render();
+    });
+    document.getElementById("edit").addEventListener("click", openEdit);
+    document.querySelectorAll("#seg button").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        Pickle.setPlayers(game, Number(btn.dataset.n), false);
+        fillBubble();
+        render();
+      });
+    });
+    onNum("target", function (n) { Pickle.setTarget(game, n); });
+    onNum("winby", function (n) { Pickle.setWinBy(game, n); });
+    onNum("score0", function (n) { Pickle.setScore(game, 0, n); });
+    onNum("score1", function (n) { Pickle.setScore(game, 1, n); });
+    [["p0", 0, 0], ["p1", 0, 1], ["p2", 1, 0], ["p3", 1, 1]].forEach(function (spec) {
+      document.getElementById(spec[0]).addEventListener("input", function (e) {
+        Pickle.setName(game, spec[1], spec[2], e.target.value);
+        render();
+      });
+    });
+    window.onBack = function () {
+      if (picking) { picking = false; render(); return true; }
+      if (editing) { closeEdit(); return true; }
+      return false;
+    };
+    new ResizeObserver(fit).observe(document.querySelector(".stage"));
+    render();
+  </script>
+</body>
+</html>

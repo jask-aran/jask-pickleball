@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "jask-pickleball",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./app/src/main/assets",
+    "not_found_handling": "single-page-application"
+  },
+  "routes": [
+    {
+      "pattern": "pickleball.jask-aran.com",
+      "custom_domain": true
+    }
+  ]
+}
