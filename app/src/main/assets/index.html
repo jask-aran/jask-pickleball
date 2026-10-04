@@ -83,6 +83,65 @@
     font-variant-numeric: tabular-nums;
   }
   .board.won .status, .board.picking .status { color: var(--foreground); }
+  .board.picking .status {
+    font-size: 16px;
+    font-weight: 700;
+    animation: pulse 1.1s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  body.picking .half { background: oklch(1 0 0 / 6%); animation: sidepulse 1.2s ease-in-out infinite; }
+  @keyframes sidepulse { 0%, 100% { background: oklch(1 0 0 / 3%); } 50% { background: oklch(1 0 0 / 10%); } }
+  .half.flash { background: oklch(1 0 0 / 18%) !important; animation: none; }
+  .reach button.flash { background: var(--accent); outline: 1px solid oklch(1 0 0 / 30%); }
+  #new.glow {
+    background: var(--foreground);
+    color: var(--primary-foreground);
+    font-weight: 700;
+    animation: pulse 1.1s ease-in-out infinite;
+  }
+  .win {
+    margin: 8px 16px 0;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: var(--foreground);
+    color: var(--primary-foreground);
+    font-weight: 700;
+    font-size: 16px;
+    text-align: center;
+  }
+  .win[hidden] { display: none; }
+  .win small { display: block; margin-top: 2px; font-size: 12px; font-weight: 500; }
+  .confirm-wrap {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgb(0 0 0 / 55%);
+  }
+  .confirm-wrap[hidden] { display: none; }
+  .confirm {
+    width: min(340px, 100%);
+    border: 1px solid var(--frost-stroke);
+    border-radius: 15px;
+    background: #1c1c1f;
+    box-shadow: var(--frost-shadow);
+    padding: 16px;
+    text-align: center;
+  }
+  .confirm h2 { margin: 0 0 6px; font-size: 17px; }
+  .confirm p { margin: 0 0 14px; color: var(--muted-foreground); font-size: 13px; }
+  .confirm .row2 { display: flex; gap: 8px; }
+  .confirm .row2 button {
+    flex: 1;
+    min-height: 44px;
+    border-radius: 11px;
+    border: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .confirm .go { background: var(--foreground); color: var(--primary-foreground); border: 0; }
   .stage {
     flex: 1;
     min-height: 0;
@@ -249,6 +308,7 @@
   <header class="board" id="board">
     <div class="call" id="call"></div>
     <p class="status" id="status"></p>
+    <div class="win" id="win" hidden></div>
   </header>
   <div class="stage">
     <div class="sheet" id="sheet">
@@ -292,6 +352,16 @@
     </div>
   </div>
   <div class="reach" id="reach"></div>
+  <div class="confirm-wrap" id="confirmWrap" hidden>
+    <div class="confirm" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+      <h2 id="confirmTitle">Start new game?</h2>
+      <p id="confirmText"></p>
+      <div class="row2">
+        <button type="button" id="confirmCancel">Cancel</button>
+        <button type="button" class="go" id="confirmGo">Start</button>
+      </div>
+    </div>
+  </div>
   <footer>
     <button type="button" id="new">New game</button>
     <button type="button" id="undo">Undo</button>
@@ -305,6 +375,7 @@
     var picking = false;
     var editing = false;
     var editBase = null;
+    var pendingBegin = null;
     var PERSON = '<svg class="person" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="4"></circle><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path></svg>';
 
     document.addEventListener("gesturestart", function (e) { e.preventDefault(); }, { passive: false });
@@ -366,12 +437,23 @@
       board.className = "board" + (picking ? " picking" : "") + (w !== null ? " won" : "");
       var server = game.sides[game.server.side];
       document.getElementById("status").textContent = picking
-        ? "Tap who serves first"
+        ? "Tap which side serves first"
         : (editing
           ? "Tap a score, or Server if you missed the change"
           : (w === null
             ? pname(server, game.server.index) + " serving · until " + game.target
             : game.sides[w].label + " reached " + game.sides[w].score));
+      var win = document.getElementById("win");
+      if (w !== null && !picking) {
+        win.hidden = false;
+        win.innerHTML = escape(game.sides[w].label) + " wins " +
+          game.sides[0].score + "–" + game.sides[1].score +
+          "<small>Tap New game to start over</small>";
+      } else {
+        win.hidden = true;
+        win.innerHTML = "";
+      }
+      document.getElementById("new").classList.toggle("glow", w !== null && !picking && !editing);
       document.body.classList.toggle("picking", picking);
       document.body.classList.toggle("editing", editing);
       var sheet = document.getElementById("sheet");
@@ -393,9 +475,11 @@
           mark.addEventListener("click", function (e) {
             e.stopPropagation();
             if (!picking) return;
-            picking = false;
-            Pickle.begin(game, si, i);
-            render();
+            pendingBegin = { side: si, index: i };
+            var reset = game.players === 4 ? "0-0-2" : "0-0";
+            document.getElementById("confirmText").textContent =
+              "Score resets to " + reset + ". " + pname(side, i) + " serves first.";
+            document.getElementById("confirmWrap").hidden = false;
           });
           sheet.appendChild(mark);
         });
@@ -453,10 +537,27 @@
         render();
       });
     }
+    function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
+    function flash(side) {
+      var screen = screenOf(side);
+      var half = document.getElementById(screen === 0 ? "left" : "right");
+      if (half) {
+        half.classList.add("flash");
+        setTimeout(function () { half.classList.remove("flash"); }, 320);
+      }
+      var btn = document.querySelector('#reach button[data-side="' + side + '"]');
+      if (btn) {
+        btn.classList.add("flash");
+        setTimeout(function () { btn.classList.remove("flash"); }, 320);
+      }
+      buzz(12);
+    }
     function point(side) {
       if (picking || editing) return;
+      if (Pickle.winner(game) !== null) { buzz([30, 40, 30]); return; }
       Pickle.rally(game, side);
       render();
+      flash(side);
     }
     function renderReach() {
       var reach = document.getElementById("reach");
@@ -508,8 +609,24 @@
     document.getElementById("undo").addEventListener("click", function () { Pickle.undo(game); if (editing) fillBubble(); render(); });
     document.getElementById("new").addEventListener("click", function () {
       if (editing) closeEdit();
+      document.getElementById("confirmWrap").hidden = true;
+      pendingBegin = null;
       picking = !picking;
       render();
+    });
+    document.getElementById("confirmCancel").addEventListener("click", function () {
+      pendingBegin = null;
+      document.getElementById("confirmWrap").hidden = true;
+    });
+    document.getElementById("confirmGo").addEventListener("click", function () {
+      if (!pendingBegin) return;
+      document.getElementById("confirmWrap").hidden = true;
+      picking = false;
+      var pb = pendingBegin;
+      pendingBegin = null;
+      Pickle.begin(game, pb.side, pb.index);
+      render();
+      flash(pb.side);
     });
     document.getElementById("edit").addEventListener("click", openEdit);
     document.querySelectorAll("#seg button").forEach(function (btn) {
@@ -530,6 +647,11 @@
       });
     });
     window.onBack = function () {
+      if (!document.getElementById("confirmWrap").hidden) {
+        pendingBegin = null;
+        document.getElementById("confirmWrap").hidden = true;
+        return true;
+      }
       if (picking) { picking = false; render(); return true; }
       if (editing) { closeEdit(); return true; }
       return false;
