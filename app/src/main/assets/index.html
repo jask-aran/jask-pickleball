@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Pickleball</title>
+<link rel="stylesheet" href="meteor.css">
 <style>
   @font-face {
     font-family: "Geist Variable";
@@ -30,6 +31,8 @@
     --frost-stroke: #ffffff4d;
     --frost-blur: blur(24px);
     --frost-shadow: 0 24px 70px rgb(0 0 0 / 38%), inset 0 1px 0 rgb(255 255 255 / 50%), inset 0 -1px 0 rgb(255 255 255 / 10%);
+    --frost-core: linear-gradient(#ffffff2b, #ffffff2b), oklch(0.19 0.005 264 / 72%);
+    --phone-overlay-padding: calc(8px + var(--safe-top)) 8px calc(8px + var(--safe-bottom));
     --safe-top: env(safe-area-inset-top, 28px);
     --safe-bottom: env(safe-area-inset-bottom, 20px);
     --safe-left: env(safe-area-inset-left, 0px);
@@ -49,6 +52,7 @@
   button, input { font: inherit; color: inherit; }
   button { border: 0; background: transparent; padding: 0; }
   button:focus, input:focus { outline: none; }
+  .board, .stage, .reach, footer { position: relative; z-index: 1; }
   .board { padding: calc(var(--safe-top) + 8px) 16px 0; }
   .call {
     display: grid;
@@ -208,30 +212,59 @@
     text-overflow: ellipsis;
   }
   .mark.serving .name { font-weight: 600; }
-  .bubble {
-    flex: none;
-    margin: 0 8px 4px;
-    overflow: visible;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    padding: 0 4px;
-  }
-  .pair { display: flex; gap: 8px; }
-  .pair .row { flex: 1; min-width: 0; padding-left: 4px; padding-right: 4px; }
-  .pair .row > span:first-child { flex: none; }
-  .pair .row input { width: auto; flex: 1; min-width: 0; }
-  .bubble[hidden] { display: none; }
-  .row {
+  .pop {
+    position: fixed;
+    z-index: 8;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: calc(56px + var(--safe-bottom));
     display: flex;
+    align-items: flex-end;
+    padding: 12px;
+    background: rgb(0 0 0 / 42%);
+    pointer-events: none;
+  }
+  .pop[hidden] { display: none; }
+  .pop-card {
+    pointer-events: auto;
+    width: 100%;
+    border: 1px solid var(--frost-stroke);
+    border-radius: 16px;
+    background: var(--frost-fill);
+    backdrop-filter: var(--frost-blur);
+    -webkit-backdrop-filter: var(--frost-blur);
+    box-shadow: var(--frost-shadow);
+    padding: 14px 12px 10px;
+    animation: frost-arrive 220ms cubic-bezier(.2, .8, .2, 1) both;
+  }
+  @keyframes frost-arrive { from { opacity: 0; transform: translateY(8px); } }
+  @media (prefers-reduced-motion: reduce) { .pop-card, .book { animation: none; } }
+  .fields { display: flex; flex-direction: column; gap: 8px; }
+  .field {
+    display: grid;
+    grid-template-columns: 1fr 168px;
     align-items: center;
     gap: 12px;
-    min-height: 40px;
-    padding: 0 8px;
-    border-radius: 8px;
+    min-height: 36px;
+    margin: 0;
   }
-  .row > span:first-child { flex: 1; font-size: 13px; }
-  .row input, .seg { width: 108px; }
+  .field > span:first-child {
+    color: var(--muted-foreground);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1;
+  }
+  .field input, .field select, .field .seg { width: 168px; justify-self: end; }
+  .extra { display: none; }
+  #bubble.doubles .extra { display: grid; }
+  .edit-reach {
+    display: flex;
+    gap: 4px;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid oklch(1 0 0 / 10%);
+  }
   input, select {
     height: 36px;
     border: 1px solid oklch(1 0 0 / 14%);
@@ -251,27 +284,25 @@
   }
   .seg button { flex: 1; color: var(--muted-foreground); font-size: 14px; }
   .seg button[aria-current="true"] { background: var(--accent); color: var(--foreground); font-weight: 600; }
-  .extra { display: none; }
-  .bubble.doubles .extra { display: flex; }
   .reach {
     display: flex;
     gap: 8px;
     padding: 0 12px 8px;
   }
   .reach[hidden] { display: none; }
-  .reach button {
+  .reach button, .edit-reach button {
     flex: 1;
-    min-height: 64px;
+    min-height: 56px;
     border: 0;
     border-radius: 8px;
     color: color-mix(in oklch, var(--foreground), transparent 38%);
     font-size: 16px;
     font-weight: 450;
   }
-  .reach button.serving { color: var(--foreground); font-weight: 650; }
-  .reach button:active, .reach button.flash { background: var(--accent); color: var(--foreground); outline: none; }
-  .reach button.slim { flex: 0 0 52px; }
-  .reach .sub { display: block; margin-top: 2px; font-size: 11px; font-weight: 400; color: var(--muted-foreground); }
+  .reach button.serving, .edit-reach button.serving { color: var(--foreground); font-weight: 650; }
+  .reach button:active, .reach button.flash, .edit-reach button:active { background: var(--accent); color: var(--foreground); outline: none; }
+  .reach button.slim, .edit-reach button.slim { flex: 0 0 44px; }
+  .reach .sub, .edit-reach .sub { display: block; margin-top: 2px; font-size: 11px; font-weight: 400; color: var(--muted-foreground); }
   .call button.num, .call button.cap {
     display: block;
     width: 100%;
@@ -306,23 +337,41 @@
     font: inherit;
     font-size: 16px;
   }
-  #assign .row > span:first-child { width: 52px; flex: none; }
   .book-wrap {
     position: fixed;
     inset: 0;
     z-index: 11;
     display: flex;
-    flex-direction: column;
-    background: var(--frame);
-    color: var(--foreground);
-    padding: calc(var(--safe-top) + 8px) 12px calc(var(--safe-bottom) + 12px);
+    align-items: stretch;
+    width: 100%;
+    height: 100dvh;
+    padding: var(--phone-overlay-padding);
+    background: rgb(0 0 0 / 42%);
   }
   .book-wrap[hidden] { display: none; }
+  .book {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    flex-direction: column;
+    border: 1px solid #ffffff4d;
+    border-radius: 14px;
+    background: oklch(0.22 0.006 264);
+    backdrop-filter: var(--frost-blur);
+    -webkit-backdrop-filter: var(--frost-blur);
+    box-shadow: var(--frost-shadow);
+    padding: 14px 12px 12px;
+    color: var(--foreground);
+    animation: frost-arrive 220ms cubic-bezier(.2, .8, .2, 1) both;
+  }
   .book-head, .book-add { display: flex; align-items: center; gap: 8px; }
+  .book-add { align-items: center; }
   .book-head h2 { flex: 1; margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -0.02em; }
   .book-head button, .book-add button {
+    height: 36px;
     min-height: 36px;
-    padding: 0 12px;
+    padding: 0 4px;
     border: 0;
     border-radius: 8px;
     background: transparent;
@@ -330,8 +379,8 @@
     font-weight: 650;
   }
   .book-head button:active, .book-add button:active { background: var(--accent); }
-  .book-add { margin: 12px 4px; }
-  .book-add input { flex: 1; }
+  .book-add { margin: 8px 0 4px; }
+  .book-add input { flex: 1; height: 36px; margin: 0; }
   .book-body { flex: 1; min-height: 0; overflow: auto; }
   .book-body h3 {
     margin: 18px 8px 4px;
@@ -361,6 +410,7 @@
 </style>
 </head>
 <body>
+  <div class="solid-meteor-shower" id="meteors" aria-hidden="true"></div>
   <header class="board" id="board">
     <div class="call" id="call"></div>
     <p class="status" id="status"></p>
@@ -383,32 +433,31 @@
       </svg>
     </div>
   </div>
-  <div class="bubble" id="bubble" hidden>
-    <div class="row"><span>Players</span>
-      <span class="seg" id="seg">
-        <button type="button" data-n="2">2</button>
-        <button type="button" data-n="4">4</button>
-      </span>
-    </div>
-    <div class="pair">
-      <label class="row"><span>Until</span><input id="target" inputmode="numeric" autocomplete="off"></label>
-      <label class="row"><span>Win by</span><input id="winby" inputmode="numeric" autocomplete="off"></label>
-    </div>
-    <div class="pair">
-      <label class="row"><span id="sl0">Left</span><input id="score0" inputmode="numeric" autocomplete="off"></label>
-      <label class="row"><span id="sl1">Right</span><input id="score1" inputmode="numeric" autocomplete="off"></label>
-    </div>
-    <div class="pair">
-      <label class="row"><span>Name</span><input id="p0" autocomplete="off"></label>
-      <label class="row extra"><span>Name</span><input id="p1" autocomplete="off"></label>
-    </div>
-    <div class="pair">
-      <label class="row"><span>Name</span><input id="p2" autocomplete="off"></label>
-      <label class="row extra"><span>Name</span><input id="p3" autocomplete="off"></label>
+  <div class="pop" id="editPop" hidden>
+    <div class="pop-card" id="bubble">
+      <div class="fields">
+        <label class="field span"><span>Players</span>
+          <span class="seg" id="seg">
+            <button type="button" data-n="2">2</button>
+            <button type="button" data-n="4">4</button>
+          </span>
+        </label>
+        <label class="field"><span>Until</span><input id="target" inputmode="numeric" autocomplete="off"></label>
+        <label class="field"><span>Win by</span><input id="winby" inputmode="numeric" autocomplete="off"></label>
+        <label class="field"><span id="sl0">Left</span><input id="score0" inputmode="numeric" autocomplete="off"></label>
+        <label class="field"><span id="sl1">Right</span><input id="score1" inputmode="numeric" autocomplete="off"></label>
+        <label class="field"><span>Name</span><input id="p0" autocomplete="off"></label>
+        <label class="field extra"><span>Name</span><input id="p1" autocomplete="off"></label>
+        <label class="field"><span>Name</span><input id="p2" autocomplete="off"></label>
+        <label class="field extra"><span>Name</span><input id="p3" autocomplete="off"></label>
+      </div>
+      <div class="edit-reach" id="editReach"></div>
     </div>
   </div>
-  <div class="bubble" id="assign" hidden>
-    <div id="assignSlots"></div>
+  <div class="pop" id="assignPop" hidden>
+    <div class="pop-card" id="assign">
+      <div class="fields" id="assignSlots"></div>
+    </div>
   </div>
   <div class="reach" id="reach"></div>
   <div class="confirm-wrap" id="confirmWrap" hidden>
@@ -429,6 +478,7 @@
     <button type="button" id="players">Players</button>
   </footer>
   <div class="book-wrap" id="bookWrap" hidden>
+    <div class="book">
     <div class="book-head">
       <h2>Players</h2>
       <button type="button" id="bookClose">Done</button>
@@ -438,7 +488,9 @@
       <button type="submit">Add</button>
     </form>
     <div class="book-body" id="bookBody"></div>
+    </div>
   </div>
+  <script src="meteors.js"></script>
   <script src="score.js"></script>
   <script src="book.js"></script>
   <script>
@@ -588,7 +640,8 @@
       document.getElementById("edit").classList.toggle("current", editing);
       document.getElementById("edit").textContent = editing ? "Done" : "Edit";
       document.getElementById("flip").classList.toggle("current", !!game.flipped);
-      document.getElementById("assign").hidden = !picking || !book.players.length;
+      document.getElementById("editPop").hidden = !editing;
+      document.getElementById("assignPop").hidden = !picking || !book.players.length;
       renderReach();
       syncLog();
       save();
@@ -618,7 +671,6 @@
       editing = true;
       editBase = Pickle.snapshot(game);
       fillBubble();
-      document.getElementById("bubble").hidden = false;
       render();
     }
     function closeEdit() {
@@ -628,7 +680,6 @@
       }
       editing = false;
       editBase = null;
-      document.getElementById("bubble").hidden = true;
       render();
     }
     function onNum(id, apply) {
@@ -663,8 +714,9 @@
     }
     function renderReach() {
       var reach = document.getElementById("reach");
-      reach.hidden = picking;
-      if (picking) return;
+      var editReach = document.getElementById("editReach");
+      reach.hidden = picking || editing;
+      if (picking) { editReach.innerHTML = ""; return; }
       var left = dataOf(0);
       var right = dataOf(1);
       function sideBtn(si, act, slim) {
@@ -675,10 +727,12 @@
         return '<button type="button" class="' + cls + '" data-act="' + act + '" data-side="' + si + '">' + label + sub + "</button>";
       }
       if (!editing) {
+        editReach.innerHTML = "";
         reach.innerHTML = sideBtn(left, "rally") + sideBtn(right, "rally");
         return;
       }
-      reach.innerHTML = sideBtn(left, "minus", true) + sideBtn(left, "plus") +
+      reach.innerHTML = "";
+      editReach.innerHTML = sideBtn(left, "minus", true) + sideBtn(left, "plus") +
         '<button type="button" class="server" data-act="server">Server<span class="sub">' +
         (game.players === 4 ? game.serverNum : "") + "</span></button>" +
         sideBtn(right, "plus") + sideBtn(right, "minus", true);
@@ -693,12 +747,14 @@
     }
     document.getElementById("left").addEventListener("click", function () { point(dataOf(0)); });
     document.getElementById("right").addEventListener("click", function () { point(dataOf(1)); });
-    document.getElementById("reach").addEventListener("click", function (e) {
+    function onReach(e) {
       var b = e.target.closest("button");
       if (!b) return;
       if (b.dataset.act === "rally") point(Number(b.dataset.side));
       else adjust(b.dataset.act, Number(b.dataset.side));
-    });
+    }
+    document.getElementById("reach").addEventListener("click", onReach);
+    document.getElementById("editReach").addEventListener("click", onReach);
     document.getElementById("call").addEventListener("click", function (e) {
       var b = e.target.closest("button");
       if (!b || !editing) return;
@@ -722,7 +778,7 @@
         var opts = '<option value="">—</option>' + book.players.map(function (p) {
           return '<option value="' + escape(p.id) + '">' + escape(p.name) + "</option>";
         }).join("");
-        return '<label class="row"><span>' + escape(slotTag(d.side, d.index)) +
+        return '<label class="field"><span>' + escape(slotTag(d.side, d.index)) +
           '</span><select data-side="' + d.side + '" data-index="' + d.index + '">' + opts + "</select></label>";
       }).join("");
       root.querySelectorAll("select").forEach(function (sel) {
