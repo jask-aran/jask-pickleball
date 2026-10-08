@@ -297,8 +297,63 @@
     min-height: 44px;
     border-radius: 11px;
     font-weight: 560;
-    font-size: 14px;
+    font-size: 12px;
+    white-space: nowrap;
   }
+  select {
+    height: 36px;
+    width: 132px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #1c1c1f;
+    color: inherit;
+    font: inherit;
+    font-size: 16px;
+  }
+  #assign .row > span:first-child { width: 52px; flex: none; }
+  .book-wrap {
+    position: fixed;
+    inset: 0;
+    z-index: 11;
+    display: flex;
+    flex-direction: column;
+    background: var(--frame);
+    color: var(--foreground);
+    padding: calc(var(--safe-top) + 8px) 12px calc(var(--safe-bottom) + 12px);
+  }
+  .book-wrap[hidden] { display: none; }
+  .book-head, .book-add { display: flex; align-items: center; gap: 8px; }
+  .book-head h2 { flex: 1; margin: 0; font-size: 18px; font-weight: 650; }
+  .book-head button, .book-add button {
+    min-height: 40px;
+    padding: 0 14px;
+    border-radius: 11px;
+    background: var(--foreground);
+    color: var(--primary-foreground);
+    font-weight: 650;
+  }
+  .book-add { margin: 12px 0; }
+  .book-add input { flex: 1; }
+  .book-body { flex: 1; min-height: 0; overflow: auto; }
+  .book-body h3 {
+    margin: 16px 0 4px;
+    color: var(--muted-foreground);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .plist {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    border-bottom: 1px solid var(--border);
+    font-size: 15px;
+  }
+  .plist span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .plist .rec { flex: none; color: var(--muted-foreground); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .plist button { flex: none; min-width: 44px; min-height: 36px; color: var(--muted-foreground); font-size: 18px; }
   footer button:active:not(:disabled) { background: var(--accent); }
   footer button:disabled { color: var(--muted-foreground); }
   footer button.current { font-weight: 600; }
@@ -351,6 +406,9 @@
       <label class="row extra"><span>Name</span><input id="p3" autocomplete="off"></label>
     </div>
   </div>
+  <div class="bubble" id="assign" hidden>
+    <div id="assignSlots"></div>
+  </div>
   <div class="reach" id="reach"></div>
   <div class="confirm-wrap" id="confirmWrap" hidden>
     <div class="confirm" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
@@ -367,12 +425,27 @@
     <button type="button" id="undo">Undo</button>
     <button type="button" id="flip">Flip</button>
     <button type="button" id="edit">Edit</button>
+    <button type="button" id="players">Players</button>
   </footer>
+  <div class="book-wrap" id="bookWrap" hidden>
+    <div class="book-head">
+      <h2>Players</h2>
+      <button type="button" id="bookClose">Done</button>
+    </div>
+    <form class="book-add" id="bookAdd">
+      <input id="bookName" maxlength="24" placeholder="Name" autocomplete="off" enterkeyhint="done">
+      <button type="submit">Add</button>
+    </form>
+    <div class="book-body" id="bookBody"></div>
+  </div>
   <script src="score.js"></script>
+  <script src="book.js"></script>
   <script>
     var KEY = "jask-pickleball";
     var game = load();
+    var book = Book.load();
     var picking = false;
+    var draft = null;
     var editing = false;
     var editBase = null;
     var pendingBegin = null;
@@ -399,6 +472,29 @@
     function pname(side, i) {
       var p = side.players[i];
       return p && p.name && p.name.trim() ? p.name.trim() : side.label;
+    }
+    function slotTag(si, i) {
+      return game.players === 4 ? "P" + (si * 2 + i + 1) : (si === 0 ? "P1" : "P2");
+    }
+    function shownName(side, si, i) {
+      if (picking && draft) {
+        var id = "";
+        draft.forEach(function (d) { if (d.side === si && d.index === i) id = d.id; });
+        return id ? (Book.nameOf(book, id) || slotTag(si, i)) : slotTag(si, i);
+      }
+      return pname(side, i);
+    }
+    function syncLog() {
+      var w = Pickle.winner(game);
+      if (w === null || !Book.named(game)) {
+        if (game.logId) {
+          Book.dropMatch(book, game.logId);
+          game.logId = null;
+        }
+        return;
+      }
+      var m = Book.capture(game, w);
+      game.logId = game.logId ? Book.replaceMatch(book, game.logId, m) : Book.addMatch(book, m);
     }
     function screenOf(si) { return game.flipped ? 1 - si : si; }
     function dataOf(screen) { return game.flipped ? 1 - screen : screen; }
@@ -437,7 +533,7 @@
       board.className = "board" + (picking ? " picking" : "") + (w !== null ? " won" : "");
       var server = game.sides[game.server.side];
       document.getElementById("status").textContent = picking
-        ? "Tap which side serves first"
+        ? (book.players.length ? "Pick players, then tap which side serves first" : "Tap which side serves first")
         : (editing
           ? "Tap a score, or Server if you missed the change"
           : (w === null
@@ -471,14 +567,16 @@
           mark.className = "mark" + (serving ? " serving" : "");
           mark.style.left = at.x;
           mark.style.top = at.y;
-          mark.innerHTML = PERSON + '<span class="name">' + escape(pname(side, i)) + "</span>";
+          mark.innerHTML = PERSON + '<span class="name">' + escape(shownName(side, si, i)) + "</span>";
           mark.addEventListener("click", function (e) {
             e.stopPropagation();
             if (!picking) return;
             pendingBegin = { side: si, index: i };
             var reset = game.players === 4 ? "0-0-2" : "0-0";
+            var note = draft && draft.filter(function (d) { return d.id; }).length === game.players
+              ? " Result will be saved." : "";
             document.getElementById("confirmText").textContent =
-              "Score resets to " + reset + ". " + pname(side, i) + " serves first.";
+              "Score resets to " + reset + ". " + shownName(side, si, i) + " serves first." + note;
             document.getElementById("confirmWrap").hidden = false;
           });
           sheet.appendChild(mark);
@@ -489,7 +587,9 @@
       document.getElementById("edit").classList.toggle("current", editing);
       document.getElementById("edit").textContent = editing ? "Done" : "Edit";
       document.getElementById("flip").classList.toggle("current", !!game.flipped);
+      document.getElementById("assign").hidden = !picking || !book.players.length;
       renderReach();
+      syncLog();
       save();
       fit();
     }
@@ -513,6 +613,7 @@
     function openEdit() {
       if (editing) return closeEdit();
       picking = false;
+      draft = null;
       editing = true;
       editBase = Pickle.snapshot(game);
       fillBubble();
@@ -606,12 +707,60 @@
       game.flipped = !game.flipped;
       render();
     });
-    document.getElementById("undo").addEventListener("click", function () { Pickle.undo(game); if (editing) fillBubble(); render(); });
+    document.getElementById("undo").addEventListener("click", function () {
+      var id = game.logId;
+      Pickle.undo(game);
+      if (id && id !== game.logId) Book.dropMatch(book, id);
+      if (editing) fillBubble();
+      render();
+    });
+    function fillAssign() {
+      var root = document.getElementById("assignSlots");
+      if (!draft) { root.innerHTML = ""; return; }
+      root.innerHTML = draft.map(function (d) {
+        var opts = '<option value="">—</option>' + book.players.map(function (p) {
+          return '<option value="' + escape(p.id) + '">' + escape(p.name) + "</option>";
+        }).join("");
+        return '<label class="row"><span>' + escape(slotTag(d.side, d.index)) +
+          '</span><select data-side="' + d.side + '" data-index="' + d.index + '">' + opts + "</select></label>";
+      }).join("");
+      root.querySelectorAll("select").forEach(function (sel) {
+        draft.forEach(function (d) {
+          if (d.side === Number(sel.dataset.side) && d.index === Number(sel.dataset.index)) sel.value = d.id || "";
+        });
+      });
+    }
+    document.getElementById("assignSlots").addEventListener("change", function (e) {
+      var sel = e.target;
+      if (!sel || sel.tagName !== "SELECT" || !draft) return;
+      var side = Number(sel.dataset.side);
+      var index = Number(sel.dataset.index);
+      draft.forEach(function (d) {
+        if (d.side === side && d.index === index) d.id = sel.value;
+        else if (sel.value && d.id === sel.value) d.id = "";
+      });
+      document.querySelectorAll("#assignSlots select").forEach(function (s) {
+        draft.forEach(function (d) {
+          if (d.side === Number(s.dataset.side) && d.index === Number(s.dataset.index)) s.value = d.id || "";
+        });
+      });
+      render();
+    });
     document.getElementById("new").addEventListener("click", function () {
       if (editing) closeEdit();
       document.getElementById("confirmWrap").hidden = true;
       pendingBegin = null;
       picking = !picking;
+      draft = null;
+      if (picking && book.players.length) {
+        draft = [];
+        [0, 1].forEach(function (si) {
+          game.sides[si].players.forEach(function (p, i) {
+            draft.push({ side: si, index: i, id: "" });
+          });
+        });
+        fillAssign();
+      }
       render();
     });
     document.getElementById("confirmCancel").addEventListener("click", function () {
@@ -625,6 +774,16 @@
       var pb = pendingBegin;
       pendingBegin = null;
       Pickle.begin(game, pb.side, pb.index);
+      game.logId = null;
+      if (draft) {
+        draft.forEach(function (d) {
+          var pl = null;
+          book.players.forEach(function (p) { if (p.id === d.id) pl = p; });
+          if (pl) Pickle.setName(game, d.side, d.index, pl.name, pl.id);
+          else Pickle.setName(game, d.side, d.index, slotTag(d.side, d.index));
+        });
+        draft = null;
+      }
       render();
       flash(pb.side);
     });
@@ -642,11 +801,83 @@
     onNum("score1", function (n) { Pickle.setScore(game, 1, n); });
     [["p0", 0, 0], ["p1", 0, 1], ["p2", 1, 0], ["p3", 1, 1]].forEach(function (spec) {
       document.getElementById(spec[0]).addEventListener("input", function (e) {
-        Pickle.setName(game, spec[1], spec[2], e.target.value);
+        var text = e.target.value;
+        var hit = book.players.filter(function (p) { return p.name === text.trim(); });
+        Pickle.setName(game, spec[1], spec[2], text, hit.length === 1 ? hit[0].id : "");
         render();
       });
     });
+    function rec(w, l) {
+      var n = w + l;
+      return w + "–" + l + (n ? " · " + Math.round(100 * w / n) + "%" : "");
+    }
+    function renderBook() {
+      var s = Book.stats(book);
+      var html = "<h3>Roster</h3>";
+      if (!book.players.length) html += '<p class="status">Add players, then assign them on New game.</p>';
+      book.players.forEach(function (p) {
+        var row = s.players.filter(function (x) { return x.id === p.id; })[0] || { w: 0, l: 0 };
+        html += '<div class="plist"><span>' + escape(p.name) + '</span><span class="rec">' +
+          rec(row.w, row.l) + '</span><button type="button" data-id="' + escape(p.id) + '" aria-label="Remove ' +
+          escape(p.name) + '">×</button></div>';
+      });
+      if (s.teams.length) {
+        html += "<h3>Teams</h3>";
+        s.teams.forEach(function (t) {
+          html += '<div class="plist"><span>' + escape(t.label) + '</span><span class="rec">' + rec(t.w, t.l) + "</span></div>";
+        });
+      }
+      if (s.vs.length) {
+        html += "<h3>Matchups</h3>";
+        s.vs.slice(0, 12).forEach(function (v) {
+          html += '<div class="plist"><span>' + escape(v.a) + " vs " + escape(v.b) +
+            '</span><span class="rec">' + v.aw + "–" + v.bw + "</span></div>";
+        });
+      }
+      var recent = book.matches.slice(-8).reverse();
+      if (recent.length) {
+        html += "<h3>Matches</h3>";
+        recent.forEach(function (m) {
+          var win = m.sides[m.winner];
+          var lose = m.sides[1 - m.winner];
+          html += '<div class="plist"><span>' + escape(win.names.join(" & ")) + " def " + escape(lose.names.join(" & ")) +
+            '</span><span class="rec">' + win.score + "–" + lose.score + "</span></div>";
+        });
+      }
+      document.getElementById("bookBody").innerHTML = html;
+    }
+    document.getElementById("players").addEventListener("click", function () {
+      renderBook();
+      document.getElementById("bookWrap").hidden = false;
+      document.getElementById("bookName").focus();
+    });
+    document.getElementById("bookClose").addEventListener("click", function () {
+      document.getElementById("bookWrap").hidden = true;
+      if (picking) fillAssign();
+    });
+    document.getElementById("bookAdd").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var input = document.getElementById("bookName");
+      if (!Book.addPlayer(book, input.value)) return;
+      input.value = "";
+      renderBook();
+      if (picking) fillAssign();
+    });
+    document.getElementById("bookBody").addEventListener("click", function (e) {
+      var b = e.target.closest("button");
+      if (!b || !b.dataset.id) return;
+      Book.removePlayer(book, b.dataset.id);
+      if (draft) draft.forEach(function (d) { if (d.id === b.dataset.id) d.id = ""; });
+      renderBook();
+      if (picking) fillAssign();
+      render();
+    });
     window.onBack = function () {
+      if (!document.getElementById("bookWrap").hidden) {
+        document.getElementById("bookWrap").hidden = true;
+        if (picking) fillAssign();
+        return true;
+      }
       if (!document.getElementById("confirmWrap").hidden) {
         pendingBegin = null;
         document.getElementById("confirmWrap").hidden = true;

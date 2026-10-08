@@ -6,8 +6,9 @@ Offline-first pickleball scorekeeper. One HTML/JS core, two shells: Android WebV
 
 ```
 app/src/main/assets/     Web core (single source of truth)
-  index.html             UI + inline controller (~240 lines JS)
+  index.html             UI + inline controller
   score.js               Rules engine, global `Pickle`, no DOM deps
+  book.js                Roster + match log, global `Book`
   geist-latin.woff2 / geist-latin-ext.woff2  Self-hosted font
 app/src/main/java/com/jask/pickleball/MainActivity.java  Android shell (~84 lines)
 app/src/main/AndroidManifest.xml  Portrait, single activity
@@ -56,6 +57,15 @@ Workers Static Assets, no Worker script. `assets.directory` points directly at `
 npx wrangler deploy --dry-run  # validate
 npx wrangler deploy            # 4 files
 ```
+
+## Players: `book.js`
+
+Device-local (`localStorage["jask-pickleball-book"]`). No accounts.
+
+- Roster: name + id. Add/remove from Players.
+- New game, if the roster is non-empty: assign a registered player to each slot, then tap who serves. Unassigned slots stay `P1–P4`.
+- A finished game is logged once only if every slot has a roster id. Undo off the win drops that match. `player.id` and `game.logId` survive snapshot/undo.
+- Stats are derived: player W–L, doubles pairs, side-vs-side. Cap 400 matches.
 
 ## State
 

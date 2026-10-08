@@ -8,8 +8,10 @@
     return Math.min(hi, Math.max(lo, n));
   }
 
-  function player(name, box) {
-    return { name: name, box: box === "left" ? "left" : "right" };
+  function player(name, box, id) {
+    var p = { name: name, box: box === "left" ? "left" : "right" };
+    if (id) p.id = String(id);
+    return p;
   }
 
   function tag(side, index, n) {
@@ -23,7 +25,10 @@
   function stamp(g) {
     g.sides.forEach(function (s, si) {
       s.players.forEach(function (p, i) {
-        if (placeholder(p.name)) p.name = tag(si, i, g.players);
+        if (placeholder(p.name)) {
+          p.name = tag(si, i, g.players);
+          delete p.id;
+        }
       });
     });
   }
@@ -54,11 +59,12 @@
       server: { side: g.server.side, index: g.server.index },
       serverNum: g.serverNum,
       firstServe: g.firstServe,
+      logId: g.logId || null,
       sides: g.sides.map(function (s) {
         return {
           label: s.label,
           score: s.score,
-          players: s.players.map(function (p) { return player(p.name, p.box); })
+          players: s.players.map(function (p) { return player(p.name, p.box, p.id); })
         };
       })
     };
@@ -126,6 +132,7 @@
     g.server = prev.server || { side: 0, index: 0 };
     g.serverNum = prev.serverNum || (g.players === 4 ? 2 : 1);
     g.firstServe = prev.firstServe !== false;
+    g.logId = prev.logId || null;
     g.sides = prev.sides;
     return true;
   }
@@ -200,10 +207,12 @@
     g.sides[side].label = String(text).slice(0, 24);
   }
 
-  function setName(g, side, index, text) {
+  function setName(g, side, index, text, id) {
     var p = g.sides[side].players[index];
     if (!p) return;
     p.name = String(text).slice(0, 24);
+    if (id) p.id = String(id).slice(0, 40);
+    else delete p.id;
   }
 
   function setTarget(g, n) {
@@ -234,7 +243,7 @@
   }
 
   function asPlayer(p, i) {
-    if (p && typeof p === "object") return player(p.name || "", p.box || (i === 0 ? "right" : "left"));
+    if (p && typeof p === "object") return player(p.name || "", p.box || (i === 0 ? "right" : "left"), p.id);
     return player(p || "", i === 0 ? "right" : "left");
   }
 
@@ -330,6 +339,16 @@
     begin(g, 0, 0);
     missed(g);
     if (g.sides[0].score !== 0 || g.server.side !== 1 || g.serverNum !== 1) throw new Error("missed fault");
+    g = create();
+    setName(g, 0, 0, "Ana", "a1");
+    g.logId = "m1";
+    push(g);
+    setName(g, 0, 0, "P1");
+    g.logId = null;
+    undo(g);
+    if (g.sides[0].players[0].name !== "Ana" || g.sides[0].players[0].id !== "a1") throw new Error("id undo");
+    if (g.logId !== "m1") throw new Error("logId undo");
+    if (normalize(JSON.parse(JSON.stringify(g))).sides[0].players[0].id !== "a1") throw new Error("id normalize");
     console.log("score.js ok");
   }
 })(typeof globalThis !== "undefined" ? globalThis : this);
