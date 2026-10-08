@@ -92,56 +92,60 @@
   body.picking .half { background: oklch(1 0 0 / 6%); animation: sidepulse 1.2s ease-in-out infinite; }
   @keyframes sidepulse { 0%, 100% { background: oklch(1 0 0 / 3%); } 50% { background: oklch(1 0 0 / 10%); } }
   .half.flash { background: oklch(1 0 0 / 18%) !important; animation: none; }
-  .reach button.flash { background: var(--accent); outline: 1px solid oklch(1 0 0 / 30%); }
+  .reach button.flash { background: var(--accent); }
   #new.glow {
-    background: var(--foreground);
-    color: var(--primary-foreground);
-    font-weight: 700;
+    color: var(--foreground);
+    font-weight: 650;
+    background: transparent;
     animation: pulse 1.1s ease-in-out infinite;
   }
   .win {
-    margin: 8px 16px 0;
-    padding: 10px 12px;
-    border-radius: 12px;
-    background: var(--foreground);
-    color: var(--primary-foreground);
-    font-weight: 700;
-    font-size: 16px;
-    text-align: center;
+    margin: 6px 0 0;
+    padding: 0;
+    background: none;
+    color: var(--foreground);
+    font-weight: 650;
+    font-size: 15px;
   }
   .win[hidden] { display: none; }
-  .win small { display: block; margin-top: 2px; font-size: 12px; font-weight: 500; }
+  .win small { display: block; margin-top: 2px; color: var(--muted-foreground); font-size: 12px; font-weight: 400; }
   .confirm-wrap {
     position: fixed;
     inset: 0;
     z-index: 10;
     display: grid;
     place-items: center;
-    padding: 24px;
-    background: rgb(0 0 0 / 55%);
+    padding: 16px;
+    background: rgb(0 0 0 / 42%);
   }
   .confirm-wrap[hidden] { display: none; }
   .confirm {
-    width: min(340px, 100%);
+    width: min(320px, 100%);
     border: 1px solid var(--frost-stroke);
-    border-radius: 15px;
-    background: #1c1c1f;
+    border-radius: 14px;
+    background: var(--frost-fill);
+    backdrop-filter: var(--frost-blur);
+    -webkit-backdrop-filter: var(--frost-blur);
     box-shadow: var(--frost-shadow);
-    padding: 16px;
-    text-align: center;
+    padding: 14px;
+    text-align: left;
   }
-  .confirm h2 { margin: 0 0 6px; font-size: 17px; }
+  .confirm h2 { margin: 0 0 4px; font-size: 15px; font-weight: 600; letter-spacing: -0.02em; }
   .confirm p { margin: 0 0 14px; color: var(--muted-foreground); font-size: 13px; }
-  .confirm .row2 { display: flex; gap: 8px; }
+  .confirm .row2 { display: flex; justify-content: flex-end; gap: 8px; }
   .confirm .row2 button {
-    flex: 1;
-    min-height: 44px;
-    border-radius: 11px;
-    border: 1px solid var(--border);
-    font-weight: 600;
-    font-size: 14px;
+    flex: none;
+    min-height: 36px;
+    padding: 0 12px;
+    border: 1px solid oklch(1 0 0 / 16%);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted-foreground);
+    font-weight: 500;
+    font-size: 13px;
   }
-  .confirm .go { background: var(--foreground); color: var(--primary-foreground); border: 0; }
+  .confirm .go { color: var(--foreground); font-weight: 650; }
+  .confirm .row2 button:active { background: oklch(1 0 0 / 10%); color: var(--foreground); }
   .stage {
     flex: 1;
     min-height: 0;
@@ -206,15 +210,12 @@
   .mark.serving .name { font-weight: 600; }
   .bubble {
     flex: none;
-    margin: 8px 12px;
+    margin: 0 8px 4px;
     overflow: visible;
-    border: 1px solid var(--frost-stroke);
-    border-radius: 15px;
-    background: var(--frost-fill);
-    backdrop-filter: var(--frost-blur);
-    -webkit-backdrop-filter: var(--frost-blur);
-    box-shadow: var(--frost-shadow);
-    padding: 6px 8px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    padding: 0 4px;
   }
   .pair { display: flex; gap: 8px; }
   .pair .row { flex: 1; min-width: 0; padding-left: 4px; padding-right: 4px; }
@@ -231,16 +232,16 @@
   }
   .row > span:first-child { flex: 1; font-size: 13px; }
   .row input, .seg { width: 108px; }
-  input {
+  input, select {
     height: 36px;
-    border: 1px solid var(--border);
+    border: 1px solid oklch(1 0 0 / 14%);
     border-radius: 8px;
-    background: transparent;
+    background: oklch(0 0 0 / 18%);
     padding: 0 10px;
     font-size: 16px;
     font-variant-numeric: tabular-nums;
   }
-  input:focus { border-color: oklch(1 0 0 / 28%); }
+  input:focus, select:focus { border-color: oklch(1 0 0 / 30%); outline: none; }
   .seg {
     display: flex;
     height: 36px;
@@ -260,15 +261,15 @@
   .reach[hidden] { display: none; }
   .reach button {
     flex: 1;
-    min-height: 72px;
-    border: 1px solid var(--border);
+    min-height: 64px;
+    border: 0;
     border-radius: 8px;
-    color: var(--muted-foreground);
+    color: color-mix(in oklch, var(--foreground), transparent 38%);
     font-size: 16px;
-    font-weight: 560;
+    font-weight: 450;
   }
-  .reach button.serving { color: var(--foreground); font-weight: 600; }
-  .reach button:active { background: var(--accent); }
+  .reach button.serving { color: var(--foreground); font-weight: 650; }
+  .reach button:active, .reach button.flash { background: var(--accent); color: var(--foreground); outline: none; }
   .reach button.slim { flex: 0 0 52px; }
   .reach .sub { display: block; margin-top: 2px; font-size: 11px; font-weight: 400; color: var(--muted-foreground); }
   .call button.num, .call button.cap {
@@ -285,27 +286,22 @@
   body.editing .half { pointer-events: none; }
   footer {
     display: flex;
-    gap: 6px;
-    padding: 6px 8px calc(8px + var(--safe-bottom));
-    border-top: 1px solid var(--frost-stroke);
-    background: var(--frost-fill);
-    backdrop-filter: var(--frost-blur);
-    -webkit-backdrop-filter: var(--frost-blur);
+    gap: 2px;
+    padding: 4px 6px calc(6px + var(--safe-bottom));
+    border-top: 1px solid var(--border);
+    background: var(--frame);
   }
   footer button {
     flex: 1;
     min-height: 44px;
-    border-radius: 11px;
-    font-weight: 560;
-    font-size: 12px;
+    border-radius: 8px;
+    color: color-mix(in oklch, var(--foreground), transparent 38%);
+    font-weight: 450;
+    font-size: 13px;
     white-space: nowrap;
   }
   select {
-    height: 36px;
     width: 132px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: #1c1c1f;
     color: inherit;
     font: inherit;
     font-size: 16px;
@@ -323,40 +319,45 @@
   }
   .book-wrap[hidden] { display: none; }
   .book-head, .book-add { display: flex; align-items: center; gap: 8px; }
-  .book-head h2 { flex: 1; margin: 0; font-size: 18px; font-weight: 650; }
+  .book-head h2 { flex: 1; margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -0.02em; }
   .book-head button, .book-add button {
-    min-height: 40px;
-    padding: 0 14px;
-    border-radius: 11px;
-    background: var(--foreground);
-    color: var(--primary-foreground);
+    min-height: 36px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--foreground);
     font-weight: 650;
   }
-  .book-add { margin: 12px 0; }
+  .book-head button:active, .book-add button:active { background: var(--accent); }
+  .book-add { margin: 12px 4px; }
   .book-add input { flex: 1; }
   .book-body { flex: 1; min-height: 0; overflow: auto; }
   .book-body h3 {
-    margin: 16px 0 4px;
-    color: var(--muted-foreground);
-    font-size: 11px;
+    margin: 18px 8px 4px;
+    color: color-mix(in oklch, var(--foreground), transparent 50%);
+    font-size: 12px;
     font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    letter-spacing: 0;
+    text-transform: none;
   }
+  .book-body h3:first-child { margin-top: 4px; }
   .plist {
     display: flex;
     align-items: center;
     gap: 8px;
-    min-height: 40px;
-    border-bottom: 1px solid var(--border);
+    min-height: 36px;
+    border-radius: 8px;
+    padding: 0 8px;
     font-size: 15px;
   }
+  .plist:active { background: var(--accent); }
   .plist span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .plist .rec { flex: none; color: var(--muted-foreground); font-size: 13px; font-variant-numeric: tabular-nums; }
   .plist button { flex: none; min-width: 44px; min-height: 36px; color: var(--muted-foreground); font-size: 18px; }
-  footer button:active:not(:disabled) { background: var(--accent); }
-  footer button:disabled { color: var(--muted-foreground); }
-  footer button.current { font-weight: 600; }
+  footer button:active:not(:disabled) { background: var(--accent); color: var(--foreground); }
+  footer button:disabled { color: color-mix(in oklch, var(--foreground), transparent 62%); }
+  footer button.current { color: var(--foreground); font-weight: 650; background: transparent; }
 </style>
 </head>
 <body>
