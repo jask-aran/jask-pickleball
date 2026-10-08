@@ -27,11 +27,11 @@
     --muted-foreground: oklch(0.63 0.006 262);
     --accent: oklch(1 0 0 / 7%);
     --border: oklch(1 0 0 / 7%);
-    --frost-fill: #ffffff2b;
+    /* Conduit frost is #ffffff2b over a charcoal pane. This page is near-black, so the fill is lifted to land on the same grey. */
+    --frost-fill: linear-gradient(180deg, oklch(1 0 0 / 10%), oklch(1 0 0 / 2%) 80px), oklch(0.4 0.006 264 / 92%);
     --frost-stroke: #ffffff4d;
     --frost-blur: blur(24px);
-    --frost-shadow: 0 24px 70px rgb(0 0 0 / 38%), inset 0 1px 0 rgb(255 255 255 / 50%), inset 0 -1px 0 rgb(255 255 255 / 10%);
-    --frost-core: linear-gradient(#ffffff2b, #ffffff2b), oklch(0.19 0.005 264 / 72%);
+    --frost-shadow: 0 24px 70px rgb(0 0 0 / 45%), inset 0 1px 0 rgb(255 255 255 / 32%), inset 0 -1px 0 rgb(255 255 255 / 8%);
     --phone-overlay-padding: calc(8px + var(--safe-top)) 8px calc(8px + var(--safe-bottom));
     --safe-top: env(safe-area-inset-top, 28px);
     --safe-bottom: env(safe-area-inset-bottom, 20px);
@@ -293,8 +293,9 @@
   .reach button, .edit-reach button {
     flex: 1;
     min-height: 56px;
-    border: 0;
+    border: 1px solid oklch(1 0 0 / 16%);
     border-radius: 8px;
+    background: transparent;
     color: color-mix(in oklch, var(--foreground), transparent 38%);
     font-size: 16px;
     font-weight: 450;
@@ -324,11 +325,13 @@
   }
   footer button {
     flex: 1;
-    min-height: 44px;
+    min-height: 40px;
+    border: 1px solid oklch(1 0 0 / 16%);
     border-radius: 8px;
-    color: color-mix(in oklch, var(--foreground), transparent 38%);
-    font-weight: 450;
-    font-size: 13px;
+    background: transparent;
+    color: color-mix(in oklch, var(--foreground), transparent 28%);
+    font-weight: 500;
+    font-size: 12px;
     white-space: nowrap;
   }
   select {
@@ -355,9 +358,9 @@
     height: 100%;
     min-height: 0;
     flex-direction: column;
-    border: 1px solid #ffffff4d;
+    border: 1px solid var(--frost-stroke);
     border-radius: 14px;
-    background: oklch(0.22 0.006 264);
+    background: var(--frost-fill);
     backdrop-filter: var(--frost-blur);
     -webkit-backdrop-filter: var(--frost-blur);
     box-shadow: var(--frost-shadow);
@@ -371,12 +374,13 @@
   .book-head button, .book-add button {
     height: 36px;
     min-height: 36px;
-    padding: 0 4px;
-    border: 0;
+    padding: 0 12px;
+    border: 1px solid oklch(1 0 0 / 16%);
     border-radius: 8px;
     background: transparent;
     color: var(--foreground);
-    font-weight: 650;
+    font-weight: 600;
+    font-size: 13px;
   }
   .book-head button:active, .book-add button:active { background: var(--accent); }
   .book-add { margin: 8px 0 4px; }
